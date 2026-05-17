@@ -1716,3 +1716,20 @@ footer {
     transform: none !important;
   }
 }
+form-privacy-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 0.85rem;
+  line-height: 1.6;
+}
+
+.form-privacy-line svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
+
+.form-privacy-line a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}

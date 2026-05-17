@@ -355,9 +355,8 @@ nav.nav-solid .nav-badge { color: var(--text-muted); }
 
 nav.nav-solid .hamburger span { background: var(--text-head); }
 
-.hamburger.open span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
-.hamburger.open span:nth-child(2) { transform: translateY(-7.5px) rotate(-45deg); }
-
+.hamburger.open span:nth-child(1) { transform: translateY(3.75px) rotate(45deg); }
+.hamburger.open span:nth-child(2) { transform: translateY(-3.75px) rotate(-45deg); }
 
 /* ── MOBILE NAV ─────────────────────────────────────────── */
 .mobile-nav {

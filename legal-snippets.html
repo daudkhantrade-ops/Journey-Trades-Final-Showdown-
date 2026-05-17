@@ -1,0 +1,214 @@
+<!-- ═══════════════════════════════════════════════════════════
+     JOURNEY TRADES — LEGAL COPY SNIPPETS
+     Ready to paste into index.html where needed.
+     These are NOT standalone pages — they are inline copy blocks.
+═══════════════════════════════════════════════════════════ -->
+
+
+<!-- ─────────────────────────────────────────────────────────
+     A. DISCLAIMER SECTION
+     Place anywhere on the main page — above or below footer.
+     Or use as a subtle section before the footer.
+───────────────────────────────────────────────────────────── -->
+
+<section class="disclaimer-section" aria-label="Disclaimer">
+  <div class="disclaimer-inner">
+    <h2 class="disclaimer-heading">A note on how we work</h2>
+    <p>
+      Journey Trades operates as a sourcing and trade coordination intermediary. We facilitate connections between buyers and suppliers — we do not manufacture goods, own factories, or act as a freight carrier. Product quality, supplier performance, and shipment outcomes are subject to third-party conduct beyond our direct control.
+    </p>
+    <p>
+      All information on this website is provided for informational purposes only. Clients are encouraged to conduct their own independent due diligence on any supplier or product before entering into a commercial agreement. No guarantee of supplier performance or trade outcome is implied.
+    </p>
+  </div>
+</section>
+
+<!-- CSS for disclaimer section (add to style.css or a <style> block) -->
+<!--
+.disclaimer-section {
+  padding: 4rem var(--pad-x);
+  background: var(--bg-warm);
+  border-top: 1px solid var(--border);
+}
+
+.disclaimer-inner {
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+.disclaimer-heading {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 600;
+  color: var(--text-head);
+  margin-bottom: 1rem;
+  letter-spacing: -0.01em;
+}
+
+.disclaimer-section p {
+  font-size: 0.86rem;
+  color: var(--text-muted);
+  line-height: 1.8;
+  margin-bottom: 0.75rem;
+}
+
+.disclaimer-section p:last-child { margin-bottom: 0; }
+-->
+
+
+<!-- ─────────────────────────────────────────────────────────
+     B. FOOTER LEGAL TEXT
+     Replace/update the footer-bottom div in index.html.
+───────────────────────────────────────────────────────────── -->
+
+<!-- Footer bottom bar — paste inside <footer> -->
+<div class="footer-bottom">
+  <p>© 2025 Journey Trades. All rights reserved.</p>
+  <div class="footer-legal-links">
+    <a href="./terms.html">Terms &amp; Conditions</a>
+    <span aria-hidden="true">·</span>
+    <a href="./privacy.html">Privacy Policy</a>
+  </div>
+  <p class="footer-disclaimer">
+    Journey Trades is a sourcing and trade coordination intermediary. We do not manufacture goods or guarantee third-party supplier performance.
+  </p>
+</div>
+
+<!-- CSS for footer legal additions (add to style.css) -->
+<!--
+.footer-legal-links {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.footer-legal-links a {
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.3);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.footer-legal-links a:hover { color: rgba(255,255,255,0.65); }
+
+.footer-legal-links span { color: rgba(255,255,255,0.15); font-size: 0.7rem; }
+
+.footer-disclaimer {
+  font-size: 0.73rem;
+  color: rgba(255,255,255,0.18);
+  width: 100%;
+  max-width: 560px;
+  line-height: 1.6;
+  margin-top: 0.25rem;
+}
+-->
+
+
+<!-- ─────────────────────────────────────────────────────────
+     C. CONTACT FORM LEGAL COPY
+     Add these beneath the form submit button and near
+     the form heading in index.html.
+───────────────────────────────────────────────────────────── -->
+
+<!-- Trust line — place directly below the submit button -->
+<p class="form-trust-line">
+  Your enquiry is handled directly by our team — not a bot, not a call centre.
+</p>
+
+<!-- Privacy reassurance — place near top of form or below submit -->
+<p class="form-privacy-line">
+  <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+  We respect your privacy. Your information is never sold or shared with third parties. Read our <a href="./privacy.html">Privacy Policy</a>.
+</p>
+
+<!-- Consent checkbox — optional, place above submit button -->
+<div class="form-group form-consent">
+  <label class="form-checkbox-label">
+    <input type="checkbox" name="consent" required>
+    <span>
+      I agree to Journey Trades' <a href="./terms.html" target="_blank" rel="noopener">Terms &amp; Conditions</a> and confirm I have read the <a href="./privacy.html" target="_blank" rel="noopener">Privacy Policy</a>.
+    </span>
+  </label>
+  <span class="form-error" role="alert"></span>
+</div>
+
+<!-- CSS for form legal copy (add to style.css) -->
+<!--
+.form-trust-line {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  text-align: center;
+  margin-top: 0.75rem;
+  font-style: italic;
+}
+
+.form-privacy-line {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  font-size: 0.76rem;
+  color: var(--text-muted);
+  margin-top: 1rem;
+  line-height: 1.6;
+}
+
+.form-privacy-line svg {
+  flex-shrink: 0;
+  margin-top: 2px;
+  color: var(--accent);
+}
+
+.form-privacy-line a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(43,76,126,0.3);
+  text-underline-offset: 2px;
+}
+
+.form-privacy-line a:hover {
+  text-decoration-color: var(--accent);
+}
+
+.form-consent {
+  margin-top: 1rem;
+  margin-bottom: 0;
+}
+
+.form-checkbox-label {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  font-size: 0;
+}
+
+.form-checkbox-label input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  margin-top: 2px;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  accent-color: var(--accent);
+  cursor: pointer;
+  padding: 0;
+}
+
+.form-checkbox-label span {
+  font-size: 0.78rem;
+  color: var(--text-muted);
+  line-height: 1.6;
+}
+
+.form-checkbox-label a {
+  color: var(--accent);
+  text-decoration: underline;
+  text-decoration-color: rgba(43,76,126,0.3);
+  text-underline-offset: 2px;
+}
+
+.form-checkbox-label a:hover {
+  text-decoration-color: var(--accent);
+}
+-->

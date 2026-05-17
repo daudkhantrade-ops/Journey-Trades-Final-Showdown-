@@ -1,0 +1,11 @@
+# robots.txt — Journey Trades
+# https://journeytrades.com
+
+User-agent: *
+Allow: /
+
+# Block access to any FormSubmit confirmation paths
+Disallow: /thanks
+
+# Sitemap location
+Sitemap: https://journeytrades.com/sitemap.xml

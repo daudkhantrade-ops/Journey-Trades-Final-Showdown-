@@ -483,6 +483,70 @@ body.legal-page #main-nav .nav-btn:hover {
     overflow-y: visible !important;
   }
 
+  /* ADD THIS BLOCK TO FIX THE COLLAPSE BUG */
+  .legal-content {
+    flex: none !important;
+    width: 100%;
+  }
+
+  /* 2-column link grid inside TOC on tablet */
+  .legal-toc ol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 2rem;
+  }
+
+  .legal-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+/* ── RESPONSIVE — MOBILE ──────────────────────────────── */
+@media (max-width: 500px) {
+  .legal-header h1 {
+    font-size: 2rem;
+  }
+
+  .legal-section h2 {
+    font-size: 1.3rem;
+  }
+
+  /* Single column TOC links */
+  .legal-toc ol {
+    grid-template-columns: 1fr;
+  }
+
+  .legal-footer {
+    padding: 2.5rem 5%;
+  }
+}
+──────────────────────────────── */
+@media (max-width: 900px) {
+  .legal-header {
+    padding: calc(56px + 2.5rem) 5% 3rem;
+  }
+
+  .legal-body {
+    padding: 3rem 5% 5rem;
+  }
+
+  /* Stack vertically: TOC then content */
+  .legal-inner {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* TOC becomes a normal block — ZERO risk of overlap */
+  .legal-toc {
+    position: static !important;
+    width: 100% !important;
+    flex: none !important;
+    max-height: none !important;
+    overflow-y: visible !important;
+  }
+
   /* 2-column link grid inside TOC on tablet */
   .legal-toc ol {
     display: grid;

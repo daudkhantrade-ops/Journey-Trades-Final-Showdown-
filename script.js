@@ -1,9 +1,19 @@
 /**
- * Journey Trades — script.js
+ * Journey Trades — script.js  v2
  * Production-safe vanilla JS
  *
+ * FIXES v2:
+ *  - initNavbar: backdrop div injected via JS (no HTML change required),
+ *    wired to toggleMenu so outside-tap closes the menu on mobile.
+ *  - toggleMenu now manages backdrop visibility + aria states in one place.
+ *  - Module-level _closeNav exposes toggleMenu(false) to sibling closures
+ *    without a global variable or tight coupling.
+ *  - initSmoothScroll: replaced duplicated manual close logic with _closeNav()
+ *    so backdrop + scroll-lock are always cleaned up together.
+ *  - initHeroSlideshow: guard against rapid visibilitychange re-entrancy.
+ *
  * Modules:
- *  1. Navbar (transparent → solid on scroll, mobile toggle)
+ *  1. Navbar (transparent → solid on scroll, mobile toggle + backdrop)
  *  2. Hero Slideshow (robust image loading, production-safe)
  *  3. Scroll Reveal (IntersectionObserver with stagger)
  *  4. Active Nav Link
@@ -16,6 +26,14 @@
 // Track page load time for bot-detection timing check
 const PAGE_LOAD_TIME = Date.now();
 
+/*
+ * Module-level shared close function.
+ * Set by initNavbar once it runs. Used by initSmoothScroll so both modules
+ * share the same close path without accessing each other's inner scope.
+ */
+let _closeNav = null;
+
+
 /* ═══════════════════════════════════════════════════════════
    1. NAVBAR
 ═══════════════════════════════════════════════════════════ */
@@ -26,12 +44,21 @@ const PAGE_LOAD_TIME = Date.now();
 
   if (!nav || !hamburger || !mobileNav) return;
 
-  // Initial state: transparent (overlaid on hero)
+  // ── Create and inject the backdrop overlay ──────────────
+  // We create it in JS so the HTML doesn't need a new element.
+  // Backdrop sits between nav (z:100) and mobile-nav (z:99).
+  const backdrop = document.createElement('div');
+  backdrop.id        = 'nav-backdrop';
+  backdrop.className = 'nav-backdrop';
+  backdrop.setAttribute('aria-hidden', 'true');
+  // Insert right before mobile-nav in the DOM so stacking order is correct
+  mobileNav.parentNode.insertBefore(backdrop, mobileNav);
+
+  // ── Initial state: transparent over hero ────────────────
   nav.classList.add('nav-transparent');
 
-  // Scroll: swap transparent ↔ solid
+  // ── Scroll: transparent ↔ solid ─────────────────────────
   let ticking = false;
-
   function onScroll() {
     if (!ticking) {
       window.requestAnimationFrame(() => {
@@ -43,81 +70,85 @@ const PAGE_LOAD_TIME = Date.now();
       ticking = true;
     }
   }
-
   window.addEventListener('scroll', onScroll, { passive: true });
-  onScroll(); // run once on load
+  onScroll();
 
-  // Hamburger toggle — stopPropagation prevents the click from bubbling
-  // to the document outside-click handler which would immediately close the menu.
+  // ── Saved scroll Y for iOS-safe scroll lock ──────────────
+  let _lockY = 0;
+
+  // ── Core toggle function ─────────────────────────────────
+  // Single source of truth for all open/close actions.
+  function toggleMenu(open) {
+    // Hamburger icon animation
+    hamburger.classList.toggle('open', open);
+    hamburger.setAttribute('aria-expanded', String(open));
+
+    // Mobile nav panel
+    mobileNav.classList.toggle('open', open);
+    mobileNav.setAttribute('aria-hidden', String(!open));
+
+    // Backdrop — fade in/out
+    backdrop.classList.toggle('open', open);
+
+    if (open) {
+      /*
+       * iOS SAFARI SCROLL LOCK
+       * body.overflow:hidden alone does NOT stop scroll on iOS Safari —
+       * it makes the body a scroll container which mis-positions fixed
+       * elements. Correct pattern: save Y → body fixed at -Y → restore.
+       */
+      _lockY = window.scrollY;
+      document.body.style.overflow  = 'hidden';
+      document.body.style.position  = 'fixed';
+      document.body.style.top       = '-' + _lockY + 'px';
+      document.body.style.width     = '100%';
+    } else {
+      document.body.style.overflow  = '';
+      document.body.style.position  = '';
+      document.body.style.top       = '';
+      document.body.style.width     = '';
+      window.scrollTo(0, _lockY);
+    }
+  }
+
+  // Expose close function to sibling closures
+  _closeNav = () => toggleMenu(false);
+
+  // ── Event wiring ─────────────────────────────────────────
+
+  // Hamburger button — stopPropagation prevents the document click
+  // handler below from immediately closing the menu on the same event.
   hamburger.addEventListener('click', (e) => {
     e.stopPropagation();
-    const open = hamburger.classList.contains('open');
-    toggleMenu(!open);
+    toggleMenu(!hamburger.classList.contains('open'));
   });
 
-  // Close on mobile nav link click
+  // Backdrop tap — closes menu (primary UX fix)
+  backdrop.addEventListener('click', () => toggleMenu(false));
+
+  // Links inside mobile nav
   mobileNav.querySelectorAll('a').forEach(link => {
     link.addEventListener('click', () => toggleMenu(false));
   });
 
-  // Close on outside click — mobile-nav is now inside <nav>, so
-  // nav.contains(e.target) covers clicks inside the menu drawer too.
+  // Outside click (desktop safety net — backdrop already handles mobile)
   document.addEventListener('click', (e) => {
-    if (!nav.contains(e.target)) {
+    if (
+      hamburger.classList.contains('open') &&
+      !nav.contains(e.target) &&
+      !mobileNav.contains(e.target)
+    ) {
       toggleMenu(false);
     }
   });
 
-  // Close on Escape
+  // Escape key
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') toggleMenu(false);
-  });
-
-  // Saved scroll position for scroll-lock/unlock.
-  let _lockY = 0;
-
-  function toggleMenu(open) {
-    hamburger.classList.toggle('open', open);
-    hamburger.setAttribute('aria-expanded', String(open));
-    mobileNav.classList.toggle('open', open);
-    mobileNav.setAttribute('aria-hidden', String(!open));
-
-    if (open) {
-      _lockY = window.scrollY;
-
-      /*
-       * ── SCROLL LOCK FIX ─────────────────────────────────────────
-       *
-       * PREVIOUS (BROKEN) APPROACH:
-       *   body.style.position = 'fixed';
-       *   body.style.top = '-' + _lockY + 'px';
-       *
-       * WHY IT WAS BROKEN:
-       *   Setting position:fixed on <body> causes iOS Safari to treat the
-       *   body as the REFERENCE for all position:fixed children. So our
-       *   mobile-nav (which is position:fixed with top: var(--nav-h)) would
-       *   be positioned relative to the fixed body, NOT the viewport.
-       *   When the user had scrolled down (e.g. 400px), the body's top was
-       *   set to -400px. The mobile-nav then rendered at
-       *   -400px + 68px (nav-h) = -332px from viewport top — completely
-       *   off-screen. The menu appeared "broken" or invisible.
-       *
-       * CORRECT APPROACH:
-       *   Set overflow:hidden on <html> only.
-       *   - Prevents page scroll on all browsers (desktop & mobile).
-       *   - Does NOT create a new scroll container (unlike overflow on body).
-       *   - Does NOT change the reference frame for position:fixed children.
-       *   - Mobile-nav stays exactly at top: 68px (var(--nav-h)) from the
-       *     real viewport, regardless of scroll position when menu opened.
-       * ─────────────────────────────────────────────────────────────
-       */
-      document.documentElement.style.overflow = 'hidden';
-
-    } else {
-      document.documentElement.style.overflow = '';
-      window.scrollTo(0, _lockY);
+    if (e.key === 'Escape' && hamburger.classList.contains('open')) {
+      toggleMenu(false);
+      hamburger.focus(); // return focus to trigger for a11y
     }
-  }
+  });
 })();
 
 
@@ -133,51 +164,42 @@ const PAGE_LOAD_TIME = Date.now();
 
   let current  = 0;
   let timer    = null;
-  const DURATION = 5000;   // ms between transitions
-  const PRELOADED = [];    // tracks which indices have loaded
+  const DURATION  = 5000;
+  const PRELOADED = [];
 
-  /**
-   * Pre-load an image by src.
-   * Resolves with the src string regardless of success/failure.
-   */
   function preload(src) {
     return new Promise((resolve) => {
       if (!src) { resolve(null); return; }
-      const img = new Image();
+      const img   = new Image();
       img.onload  = () => resolve(src);
-      img.onerror = () => resolve(null); // fail silently, slide stays blank
-      img.src = src;
+      img.onerror = () => resolve(null);
+      img.src     = src;
     });
   }
 
-  /**
-   * Apply the loaded src as a background-image on the slide element.
-   */
   function applyBackground(slideEl, src) {
-    if (src) {
-      slideEl.style.backgroundImage = 'url("' + src + '")';
-    }
+    if (src) slideEl.style.backgroundImage = 'url("' + src + '")';
   }
 
-  /**
-   * Activate a slide by index.
-   */
   function goToSlide(idx) {
     slides[current].classList.remove('active');
     current = (idx + slides.length) % slides.length;
     slides[current].classList.add('active');
   }
 
-  /**
-   * Advance to the next slide.
-   */
-  function nextSlide() {
-    goToSlide(current + 1);
+  function nextSlide() { goToSlide(current + 1); }
+
+  function startTimer() {
+    if (!timer && slides.length > 1) {
+      timer = setInterval(nextSlide, DURATION);
+    }
   }
 
-  /**
-   * Bootstrap: load all slide images up front, then start the rotation.
-   */
+  function stopTimer() {
+    clearInterval(timer);
+    timer = null;
+  }
+
   async function bootstrap() {
     const loadPromises = slides.map((slideEl, i) => {
       const src = slideEl.getAttribute('data-src') || '';
@@ -187,28 +209,21 @@ const PAGE_LOAD_TIME = Date.now();
       });
     });
 
-    // Wait for slide 0 before showing anything
     await loadPromises[0];
-
-    // Mark first slide active
     slides[0].classList.add('active');
 
-    // Start rotation only if there's more than one slide
     if (slides.length > 1) {
-      Promise.all(loadPromises.slice(1)); // no await intentional
-      timer = setInterval(nextSlide, DURATION);
+      Promise.all(loadPromises.slice(1));
+      startTimer();
     }
   }
 
   bootstrap();
 
-  // Pause slideshow when tab is not visible
+  // Pause when tab is hidden — prevents battery drain and
+  // guards against re-entrancy if visibilitychange fires rapidly
   document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-      clearInterval(timer);
-    } else if (slides.length > 1) {
-      timer = setInterval(nextSlide, DURATION);
-    }
+    document.hidden ? stopTimer() : startTimer();
   });
 })();
 
@@ -220,7 +235,6 @@ const PAGE_LOAD_TIME = Date.now();
   const els = document.querySelectorAll('.reveal');
   if (!els.length) return;
 
-  // Instant fallback for browsers without IntersectionObserver
   if (!('IntersectionObserver' in window)) {
     els.forEach(el => el.classList.add('visible'));
     return;
@@ -230,20 +244,13 @@ const PAGE_LOAD_TIME = Date.now();
     entries.forEach(entry => {
       if (!entry.isIntersecting) return;
 
-      const el      = entry.target;
-      const parent  = el.parentElement;
-
-      // Calculate stagger index among sibling .reveal elements
-      const siblings = parent
-        ? Array.from(parent.querySelectorAll('.reveal:not(.visible)'))
+      const el       = entry.target;
+      const siblings = el.parentElement
+        ? Array.from(el.parentElement.querySelectorAll('.reveal:not(.visible)'))
         : [];
-      const staggerIdx = siblings.indexOf(el);
-      const delay = Math.min(staggerIdx * 80, 320); // cap at 320ms
+      const delay = Math.min(siblings.indexOf(el) * 80, 320);
 
-      setTimeout(() => {
-        el.classList.add('visible');
-      }, delay);
-
+      setTimeout(() => el.classList.add('visible'), delay);
       observer.unobserve(el);
     });
   }, {
@@ -298,20 +305,19 @@ const PAGE_LOAD_TIME = Date.now();
 
       e.preventDefault();
 
-      // Close mobile menu if open
-      const hamburger = document.getElementById('hamburger');
-      const mobileNav = document.getElementById('mobile-nav');
-      if (hamburger && mobileNav && hamburger.classList.contains('open')) {
-        hamburger.classList.remove('open');
-        hamburger.setAttribute('aria-expanded', 'false');
-        mobileNav.classList.remove('open');
-        mobileNav.setAttribute('aria-hidden', 'true');
-        // Restore scroll lock (html overflow) before scrolling
-        document.documentElement.style.overflow = '';
-      }
+      /*
+       * FIX: use _closeNav() instead of manually removing classes.
+       * This ensures the backdrop, body scroll-lock, and all aria
+       * attributes are cleaned up via the single toggleMenu(false) path.
+       */
+      if (_closeNav) _closeNav();
 
-      const top = target.getBoundingClientRect().top + window.scrollY - navH();
-      window.scrollTo({ top, behavior: 'smooth' });
+      // Small delay lets iOS finish the body position:fixed restore
+      // before we attempt scrollTo, preventing a jump artefact.
+      setTimeout(() => {
+        const top = target.getBoundingClientRect().top + window.scrollY - navH();
+        window.scrollTo({ top, behavior: 'smooth' });
+      }, 10);
     });
   });
 })();
@@ -327,42 +333,36 @@ const PAGE_LOAD_TIME = Date.now();
 
   if (!form) return;
 
-  // ── Live validation: clear error as user types ──
+  // Live validation: clear error as user types
   form.querySelectorAll('input, select, textarea').forEach(field => {
     field.addEventListener('input',  () => clearError(field));
     field.addEventListener('change', () => clearError(field));
   });
 
-  // ── Submit ──
+  // Submit
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
 
-    // Bot protection: reject submissions under 3 seconds (bots are instant)
-    if (Date.now() - PAGE_LOAD_TIME < 3000) {
-      return;
-    }
+    // Bot protection: reject submissions faster than 3 seconds
+    if (Date.now() - PAGE_LOAD_TIME < 3000) return;
 
     if (!validateForm()) return;
 
     setLoading(true);
 
-    const formData = new FormData(form);
-
     try {
       const res = await fetch(form.action, {
-        method: 'POST',
-        body: formData,
+        method:  'POST',
+        body:    new FormData(form),
         headers: { 'Accept': 'application/json' }
       });
 
       if (res.ok) {
         showSuccess();
       } else {
-        // FormSubmit may not return JSON — fall back to native submit
-        form.submit();
+        form.submit(); // FormSubmit redirect fallback
       }
     } catch (_err) {
-      // Network failure: fall back to native redirect-based submit
       console.warn('[Journey Trades] Async submit failed — falling back to native.', _err);
       form.submit();
     } finally {
@@ -370,15 +370,13 @@ const PAGE_LOAD_TIME = Date.now();
     }
   });
 
-  // ── Helpers ──
+  // ── Helpers ──────────────────────────────────────────────
 
   function validateForm() {
     let valid = true;
-
     form.querySelectorAll('[required]').forEach(field => {
       clearError(field);
       const val = field.value.trim();
-
       if (!val) {
         showError(field, 'This field is required.');
         valid = false;
@@ -387,7 +385,6 @@ const PAGE_LOAD_TIME = Date.now();
         valid = false;
       }
     });
-
     return valid;
   }
 

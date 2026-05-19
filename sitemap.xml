@@ -5,12 +5,12 @@
   <!-- Homepage -->
   <url>
     <loc>https://journeytrades.com/</loc>
-    <lastmod>2025-05-01</lastmod>
+    <lastmod>2025-01-01</lastmod>
     <changefreq>monthly</changefreq>
     <priority>1.0</priority>
   </url>
 
-  <!-- Terms & Conditions (clean URL via Vercel rewrite) -->
+  <!-- Terms & Conditions — no .html: matches cleanUrls:true in vercel.json -->
   <url>
     <loc>https://journeytrades.com/terms</loc>
     <lastmod>2025-01-01</lastmod>
@@ -18,7 +18,7 @@
     <priority>0.3</priority>
   </url>
 
-  <!-- Privacy Policy (clean URL via Vercel rewrite) -->
+  <!-- Privacy Policy — no .html: matches cleanUrls:true in vercel.json -->
   <url>
     <loc>https://journeytrades.com/privacy</loc>
     <lastmod>2025-01-01</lastmod>

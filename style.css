@@ -1,8 +1,18 @@
 /* ═══════════════════════════════════════════════════════════
-   JOURNEY TRADES — style.css
+   JOURNEY TRADES — style.css  v2
    Premium B2B sourcing website
    Design: cinematic · editorial · minimal · trustworthy
    Fonts: Cormorant Garamond (display) + Outfit (body)
+
+   FIXES v2:
+   - Added .nav-backdrop (full-screen dimmer behind mobile-nav).
+     Fixes click-outside-to-close on mobile.
+   - .mobile-nav: added background-color hardcoded fallback alongside
+     var(--bg) — certain Android Chromium versions fail to paint
+     CSS-variable backgrounds on GPU-composited position:fixed layers.
+     Also added will-change and isolation:isolate to force a clean
+     compositing layer, preventing the "transparent nav" bug.
+   - z-index hierarchy enforced: nav(100) > mobile-nav(99) > backdrop(98).
 ═══════════════════════════════════════════════════════════ */
 
 
@@ -167,7 +177,7 @@ button, input, select, textarea {
 nav {
   position: fixed;
   top: 0; left: 0; right: 0;
-  z-index: 999;
+  z-index: 100;
   height: var(--nav-h);
   transition: background 0.4s ease, box-shadow 0.4s ease, border-color 0.4s ease;
   border-bottom: 1px solid transparent;
@@ -366,48 +376,86 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 .hamburger.open span:nth-child(2) { transform: translateY(-7.5px) rotate(-45deg); }
 
 
+/* ── NAV BACKDROP ───────────────────────────────────────── */
+/*
+  Full-screen dimmer injected by JS between the nav (z:100)
+  and the page content. Provides:
+  1. Visual context that the menu is a modal-like layer.
+  2. Tap-outside-to-close on mobile (wired in script.js).
+
+  DESKTOP: display:none — never shown above 860px because
+  the hamburger and mobile-nav are also hidden at that width.
+
+  MOBILE (≤ 860px): display:block, toggled via .open class.
+  opacity transition handles the fade; pointer-events:auto
+  on .open ensures the tap target is active only when visible.
+*/
+.nav-backdrop {
+  display: none;           /* hidden on desktop */
+  position: fixed;
+  inset: 0;
+  z-index: 98;             /* below mobile-nav(99) and nav(100) */
+  background: rgba(14,15,13,0.55);
+  backdrop-filter: blur(3px);
+  -webkit-backdrop-filter: blur(3px);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  /* No will-change — backdrop is a simple fade, not GPU-intensive */
+}
+
+.nav-backdrop.open {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+
 /* ── MOBILE NAV ─────────────────────────────────────────── */
 /*
- * ARCHITECTURE CHANGE: position:fixed → position:absolute
- *
- * The mobile-nav is now nested inside <nav id="main-nav"> in the HTML.
- * <nav> is position:fixed with z-index:999, so it has its own GPU
- * compositing layer above the entire page.
- *
- * mobile-nav with position:absolute + top:100% drops it directly below
- * the nav bar and inherits the nav's compositing layer. It is therefore
- * ALWAYS visually above the hero — no z-index tricks, no will-change
- * conflicts, no GPU compositor order issues. This is the correct,
- * permanent fix for the background-not-rendering bug.
- */
+  FIX: Added background-color with hardcoded fallback alongside var(--bg).
+  On certain Android Chromium versions, CSS custom properties fail to paint
+  on GPU-composited layers (position:fixed + will-change:transform).
+  The hardcoded #F4F1EC guarantees the background always renders.
+
+  FIX: Added will-change:transform,opacity to promote the element to its
+  own compositing layer BEFORE the animation starts. Without this, the
+  browser promotes it mid-animation causing the background paint to be
+  skipped in the first frame (the "transparent nav" bug from Image 1).
+
+  FIX: isolation:isolate creates a new stacking context, preventing
+  any child element from accidentally bleeding outside the panel.
+*/
 .mobile-nav {
-  position: absolute; /* relative to the fixed <nav> parent */
-  top: 100%;          /* starts exactly at the bottom edge of the nav bar */
-  left: 0;
-  right: 0;
-
-  /* No z-index needed — inherits nav's stacking context (z-index:999) */
-
-  background: #F4F1EC;
-  background: var(--bg, #F4F1EC);
-  border-bottom: 1px solid var(--border, #e5e1d8);
-  box-shadow: 0 16px 40px rgba(14,15,13,0.18);
-
-  transform: translateY(-10px);
+  position: fixed;
+  top: var(--nav-h);
+  left: 0; right: 0;
+  z-index: 99;
+  background-color: #F4F1EC;            /* hardcoded fallback — CRITICAL */
+  background: var(--bg);               /* CSS var override if supported */
+  border-bottom: 1px solid var(--border);
+  box-shadow: 0 16px 40px rgba(14,15,13,0.15);
+  transform: translateY(-8px);
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
+  isolation: isolate;                  /* new stacking context */
+  will-change: transform, opacity;     /* promote to GPU layer upfront */
+  /*
+    display:none in base (desktop) — restored to display:block in the
+    860px breakpoint. We do NOT rely on display for the open/close
+    animation; opacity + visibility handle that.
+  */
   display: none;
   transition:
     transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
-    opacity 0.3s ease,
+    opacity   0.3s ease,
     visibility 0.3s;
 }
 
 .mobile-nav.open {
   transform: translateY(0);
   opacity: 1;
-  pointer-events: all;
+  pointer-events: auto;
   visibility: visible;
 }
 
@@ -462,15 +510,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   justify-content: center;
   align-items: flex-start;
   overflow: hidden;
-  background: var(--dark); /* Fallback if images fail */
-  /*
-   * isolation: isolate creates an explicit stacking context for the hero.
-   * This confines all z-index ordering of hero children (slides, overlay,
-   * grain, content) to within the hero element, preventing any accidental
-   * compositing interaction with fixed-position elements above the hero
-   * (such as the nav and mobile-nav).
-   */
-  isolation: isolate;
+  background: var(--dark);
 }
 
 /* ── Slideshow background ── */
@@ -491,12 +531,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   transition:
     opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1),
     transform 8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  /*
-   * REMOVED: will-change: opacity, transform
-   * This was causing hero GPU compositing layers to paint above the
-   * mobile-nav despite z-index:1000, making the nav background invisible.
-   * CSS transitions still animate the hero correctly without this hint.
-   */
+  will-change: opacity, transform;
 }
 
 .hero-slide.active {
@@ -509,13 +544,11 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   position: absolute;
   inset: 0;
   z-index: 1;
-  /* Gradient: dark left + dark bottom */
   background:
     linear-gradient(105deg, rgba(10,12,10,0.75) 0%, rgba(10,12,10,0.30) 55%, rgba(10,12,10,0.15) 100%),
     linear-gradient(to top, rgba(10,12,10,0.65) 0%, transparent 50%);
 }
 
-/* Subtle film grain texture */
 .hero-grain {
   position: absolute;
   inset: 0;
@@ -830,10 +863,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   overflow: hidden;
 }
 
-/* Remove right border on col 3 */
 .service-card:nth-child(3n) { border-right: none; }
-
-/* Remove bottom border on last row */
 .service-card:nth-child(n+4) { border-bottom: none; }
 
 .service-card::after {
@@ -866,10 +896,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   margin-bottom: 1.25rem;
 }
 
-.service-icon svg {
-  width: 100%;
-  height: 100%;
-}
+.service-icon svg { width: 100%; height: 100%; }
 
 .service-card h3 {
   font-family: var(--font-display);
@@ -909,7 +936,6 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   position: relative;
 }
 
-/* Connecting horizontal rule */
 .process-steps::before {
   content: '';
   position: absolute;
@@ -995,9 +1021,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   gap: 12px;
 }
 
-.gallery-tall {
-  grid-row: span 2;
-}
+.gallery-tall { grid-row: span 2; }
 
 .gallery-item {
   position: relative;
@@ -1014,9 +1038,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   display: block;
 }
 
-.gallery-item:hover img {
-  transform: scale(1.06);
-}
+.gallery-item:hover img { transform: scale(1.06); }
 
 .gallery-caption {
   position: absolute;
@@ -1034,7 +1056,6 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 
 .gallery-item:hover .gallery-caption { opacity: 1; }
 
-/* Full-width cinematic strip */
 .gallery-strip {
   max-width: var(--max-w);
   margin: 0 auto;
@@ -1116,9 +1137,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   transition: background 0.25s;
 }
 
-.industry-item:hover {
-  background: rgba(255,255,255,0.04);
-}
+.industry-item:hover { background: rgba(255,255,255,0.04); }
 
 .industry-icon {
   width: 36px;
@@ -1127,10 +1146,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   margin-bottom: 1.25rem;
 }
 
-.industry-icon svg {
-  width: 100%;
-  height: 100%;
-}
+.industry-icon svg { width: 100%; height: 100%; }
 
 .industry-item h4 {
   font-family: var(--font-display);
@@ -1165,7 +1181,6 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   align-items: start;
 }
 
-/* Left */
 .contact-left .section-sub { max-width: 380px; }
 
 .contact-channels {
@@ -1248,7 +1263,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   box-shadow: 0 6px 24px rgba(37,211,102,0.4);
 }
 
-/* Right: Form */
+/* Form */
 .contact-form {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -1316,9 +1331,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 }
 
 .form-group input::placeholder,
-.form-group textarea::placeholder {
-  color: var(--text-muted);
-}
+.form-group textarea::placeholder { color: var(--text-muted); }
 
 .form-group input:focus,
 .form-group select:focus,
@@ -1355,7 +1368,6 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   min-height: 1rem;
 }
 
-/* Submit button */
 .form-submit {
   width: 100%;
   height: 50px;
@@ -1398,7 +1410,6 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Success state */
 .form-success {
   display: none;
   align-items: flex-start;
@@ -1412,22 +1423,10 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 
 .form-success.visible { display: flex; }
 
-.form-success > div {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
+.form-success > div { display: flex; flex-direction: column; gap: 4px; }
 
-.form-success strong {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: var(--text-head);
-}
-
-.form-success span {
-  font-size: 0.83rem;
-  color: var(--text-muted);
-}
+.form-success strong { font-size: 0.9rem; font-weight: 600; color: var(--text-head); }
+.form-success span   { font-size: 0.83rem; color: var(--text-muted); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -1451,7 +1450,6 @@ footer {
   margin-bottom: 2rem;
 }
 
-/* Logo */
 .footer-logo {
   display: inline-flex;
   align-items: center;
@@ -1542,12 +1540,8 @@ footer {
 }
 
 .footer-bottom p,
-.footer-bottom span {
-  font-size: 0.77rem;
-  color: rgba(255,255,255,0.2);
-}
+.footer-bottom span { font-size: 0.77rem; color: rgba(255,255,255,0.2); }
 
-/* Legal links in footer */
 .footer-legal-links {
   display: flex;
   align-items: center;
@@ -1562,10 +1556,8 @@ footer {
 }
 
 .footer-legal-links a:hover { color: rgba(255,255,255,0.65); }
+.footer-legal-links span    { color: rgba(255,255,255,0.12); }
 
-.footer-legal-links span { color: rgba(255,255,255,0.12); }
-
-/* Form privacy trust line */
 .form-privacy-line {
   display: flex;
   align-items: flex-start;
@@ -1576,11 +1568,7 @@ footer {
   line-height: 1.6;
 }
 
-.form-privacy-line svg {
-  flex-shrink: 0;
-  margin-top: 2px;
-  color: var(--accent);
-}
+.form-privacy-line svg { flex-shrink: 0; margin-top: 2px; color: var(--accent); }
 
 .form-privacy-line a {
   color: var(--accent);
@@ -1590,9 +1578,7 @@ footer {
   transition: text-decoration-color 0.2s;
 }
 
-.form-privacy-line a:hover {
-  text-decoration-color: var(--accent);
-}
+.form-privacy-line a:hover { text-decoration-color: var(--accent); }
 
 
 /* ═══════════════════════════════════════════════════════════
@@ -1646,30 +1632,18 @@ footer {
    RESPONSIVE — TABLET (≤ 1100px)
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 1100px) {
-  :root {
-    --pad-x: 5%;
-  }
+  :root { --pad-x: 5%; }
 
-  .problem-inner {
-    grid-template-columns: 1fr;
-    gap: 3.5rem;
-  }
+  .problem-inner { grid-template-columns: 1fr; gap: 3.5rem; }
 
-  .services-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .services-grid { grid-template-columns: repeat(2, 1fr); }
 
-  /* Fix grid borders for 2-col layout */
   .service-card:nth-child(3n)   { border-right: 1px solid var(--border); }
   .service-card:nth-child(2n)   { border-right: none; }
   .service-card:nth-child(n+4)  { border-bottom: 1px solid var(--border); }
   .service-card:nth-child(n+5)  { border-bottom: none; }
 
-  .process-steps {
-    grid-template-columns: repeat(2, 1fr);
-    gap: 3rem;
-  }
-
+  .process-steps { grid-template-columns: repeat(2, 1fr); gap: 3rem; }
   .process-steps::before { display: none; }
   .process-step-line { display: none; }
 
@@ -1677,17 +1651,11 @@ footer {
     grid-template-columns: 1fr 1fr;
     grid-template-rows: 280px 280px 280px;
   }
-
   .gallery-tall { grid-row: span 2; }
 
-  .industries-grid {
-    grid-template-columns: repeat(2, 1fr);
-  }
+  .industries-grid { grid-template-columns: repeat(2, 1fr); }
 
-  .contact-inner {
-    grid-template-columns: 1fr;
-    gap: 4rem;
-  }
+  .contact-inner { grid-template-columns: 1fr; gap: 4rem; }
 }
 
 
@@ -1695,71 +1663,53 @@ footer {
    RESPONSIVE — MOBILE (≤ 860px)
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 860px) {
-  /* Nav */
+  /* Nav — show hamburger, hide desktop items */
   .nav-links  { display: none; }
   .nav-badge  { display: none; }
   .nav-cta    { display: none; }
   .hamburger  { display: flex; }
 
-  /* Restore mobile-nav to block so it can be toggled open by JS */
-  .mobile-nav { display: block; }
+  /* Restore mobile-nav and backdrop to block so JS can toggle them */
+  .mobile-nav   { display: block; }
+  .nav-backdrop { display: block; }
 
   /* Hero */
   .hero { min-height: 100svh; }
-
   .hero-heading { font-size: clamp(2.4rem, 9vw, 4rem); }
 
   .hero-metrics {
     display: grid;
     grid-template-columns: 1fr 1fr;
   }
-
   .hero-metric-div { display: none; }
-
   .hero-scroll { display: none; }
 
-  /* Problem */
-  .problem { padding: 5rem var(--pad-x-sm); }
+  /* Sections */
+  .problem   { padding: 5rem var(--pad-x-sm); }
   .problem-inner { gap: 3rem; }
 
-  /* Services */
-  .services { padding: 5rem var(--pad-x-sm); }
+  .services  { padding: 5rem var(--pad-x-sm); }
   .services-grid { grid-template-columns: 1fr; }
   .service-card { border-right: none !important; border-bottom: 1px solid var(--border) !important; }
   .service-card:last-child { border-bottom: none !important; }
 
-  /* Process */
-  .process { padding: 5rem var(--pad-x-sm); }
-  .process-steps {
-    grid-template-columns: 1fr;
-    gap: 2.5rem;
-  }
+  .process   { padding: 5rem var(--pad-x-sm); }
+  .process-steps { grid-template-columns: 1fr; gap: 2.5rem; }
 
-  /* Gallery */
   .operations { padding: 5rem var(--pad-x-sm); }
-
-  .gallery-grid {
-    grid-template-columns: 1fr;
-    grid-template-rows: auto;
-  }
-
+  .gallery-grid { grid-template-columns: 1fr; grid-template-rows: auto; }
   .gallery-tall { grid-row: span 1; }
   .gallery-item { height: 260px; }
-
   .gallery-strip { height: 260px; }
   .gallery-strip-overlay { padding: 2rem; }
 
-  /* Industries */
   .industries { padding: 5rem var(--pad-x-sm); }
   .industries-grid { grid-template-columns: 1fr; }
 
-  /* Contact */
   .contact { padding: 5rem var(--pad-x-sm); }
 
-  /* Footer */
   .footer-inner { flex-direction: column; gap: 2.5rem; }
 
-  /* Float */
   .floating-wa { bottom: 1.5rem; right: 1.5rem; width: 52px; height: 52px; }
 }
 
@@ -1768,25 +1718,15 @@ footer {
    RESPONSIVE — SMALL MOBILE (≤ 480px)
 ═══════════════════════════════════════════════════════════ */
 @media (max-width: 480px) {
-  .hero-heading { font-size: clamp(2rem, 10vw, 2.8rem); }
-
-  .hero-sub { font-size: 0.9rem; }
-
-  .hero-actions { flex-direction: column; align-items: flex-start; }
-
+  .hero-heading  { font-size: clamp(2rem, 10vw, 2.8rem); }
+  .hero-sub      { font-size: 0.9rem; }
+  .hero-actions  { flex-direction: column; align-items: flex-start; }
   .btn-primary, .btn-ghost { width: 100%; justify-content: center; }
-
-  .hero-metrics { grid-template-columns: 1fr 1fr; }
-
-  /* Reduce the large section-head bottom gap on small screens */
-  .section-head { margin-bottom: 3rem; }
-
-  .form-row { grid-template-columns: 1fr; }
-
-  .contact-form { padding: 1.75rem 1.5rem; }
-
+  .hero-metrics  { grid-template-columns: 1fr 1fr; }
+  .section-head  { margin-bottom: 3rem; }
+  .form-row      { grid-template-columns: 1fr; }
+  .contact-form  { padding: 1.75rem 1.5rem; }
   .gallery-strip { height: 200px; }
-
   .footer-bottom { flex-direction: column; align-items: flex-start; }
 }
 
@@ -1797,15 +1737,11 @@ footer {
 @media (min-width: 1600px) {
   :root { --pad-x: 7%; }
   .section-heading { font-size: 4.2rem; }
-  .hero-heading { font-size: 7.5rem; }
+  .hero-heading    { font-size: 7.5rem; }
 }
 
 
 /* ── FOCUS VISIBLE ──────────────────────────────────────── */
-/*
-  Provide visible focus rings for keyboard users without
-  interfering with mouse/touch interactions.
-*/
 :focus { outline: none; }
 
 :focus-visible {
@@ -1832,7 +1768,7 @@ footer {
 }
 
 
-/* ── SKIP LINK (accessibility) ──────────────────────────── */
+/* ── SKIP LINK ──────────────────────────────────────────── */
 .skip-link {
   position: absolute;
   top: -100%;
@@ -1848,15 +1784,14 @@ footer {
   transition: top 0.2s;
 }
 
-.skip-link:focus {
-  top: 0;
-}
+.skip-link:focus { top: 0; }
 
 
 /* ── PRINT ──────────────────────────────────────────────── */
 @media print {
   nav,
   .mobile-nav,
+  .nav-backdrop,
   .floating-wa,
   .hero-slideshow,
   .hero-grain,
@@ -1877,13 +1812,10 @@ footer {
   }
 
   .hero-heading { color: #000; font-size: 2.5rem; }
-  .hero-sub { color: #333; }
-
-  body { background: #fff; color: #000; }
-
-  a { color: #000; text-decoration: underline; }
-
-  .reveal { opacity: 1 !important; transform: none !important; }
+  .hero-sub     { color: #333; }
+  body          { background: #fff; color: #000; }
+  a             { color: #000; text-decoration: underline; }
+  .reveal       { opacity: 1 !important; transform: none !important; }
 }
 
 
@@ -1894,13 +1826,7 @@ footer {
     transition-duration: 0.01ms !important;
   }
 
-  .reveal {
-    opacity: 1;
-    transform: none;
-  }
-
-  .hero-slide {
-    transition: opacity 0.3s !important;
-    transform: none !important;
-  }
+  .reveal      { opacity: 1; transform: none; }
+  .hero-slide  { transition: opacity 0.3s !important; transform: none !important; }
+  .nav-backdrop { transition: none !important; }
 }

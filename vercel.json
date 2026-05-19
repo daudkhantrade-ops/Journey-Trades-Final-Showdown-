@@ -45,7 +45,7 @@
       ]
     },
     {
-      "source": "/style.css",
+      "source": "/(.*)\\.(?:css|js)",
       "headers": [
         {
           "key": "Cache-Control",
@@ -54,20 +54,11 @@
       ]
     },
     {
-      "source": "/script.js",
+      "source": "/(.*)\\.html",
       "headers": [
         {
           "key": "Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
-        }
-      ]
-    },
-    {
-      "source": "/legal.css",
-      "headers": [
-        {
-          "key": "Cache-Control",
-          "value": "public, max-age=86400, stale-while-revalidate=604800"
+          "value": "public, max-age=3600, stale-while-revalidate=86400"
         }
       ]
     }

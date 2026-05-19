@@ -3,17 +3,6 @@
    Terms & Conditions + Privacy Policy pages.
    COMPLETELY SELF-CONTAINED — does not rely on CSS
    variables from style.css. All values are hardcoded.
-
-   FIX NOTES (v2):
-   - Converted .legal-inner and .legal-toc to MOBILE-FIRST.
-     The old desktop-first approach relied on overriding
-     position:sticky with position:static !important on mobile,
-     which is fragile on Android WebView and certain mobile
-     Chromium builds. Mobile-first eliminates the need for
-     !important overrides entirely.
-   - Added nav-backdrop rules for legal pages (mirrors style.css).
-   - Added isolation:isolate to the legal nav to prevent any
-     stacking-context bleed from child elements.
    ========================================================= */
 
 
@@ -21,16 +10,20 @@
 body.legal-page {
   background: #F8F9FB;
   /*
-    Do NOT set overflow:hidden or overflow-x:hidden on body —
-    it silently breaks position:sticky on any descendant by
-    making body the scroll container reference.
-    Clipping belongs on html (see style.css).
+    Explicitly unset any overflow-x that style.css might set on body.
+    position:sticky on .legal-toc silently breaks when a scroll ancestor
+    has overflow:hidden. This guarantees the sidebar sticks correctly.
   */
   overflow: visible;
 }
 
 
 /* ── LEGAL NAV OVERRIDES ──────────────────────────────── */
+/*
+   Force the nav to be clean on legal pages.
+   Simple: logo left, CTA button right. Nothing else.
+   Works regardless of which version of style.css is loaded.
+*/
 body.legal-page #main-nav {
   position: fixed !important;
   top: 0 !important;
@@ -45,8 +38,7 @@ body.legal-page #main-nav {
   display: flex !important;
   align-items: center !important;
   padding: 0 5% !important;
-  z-index: 200 !important;            /* raised — ensures nav is above all legal page content */
-  isolation: isolate;                  /* new stacking context — prevents child bleed */
+  z-index: 999 !important;
 }
 
 body.legal-page #main-nav .nav-inner {
@@ -94,18 +86,15 @@ body.legal-page #main-nav .nav-logo-text {
   color: #0B1829 !important;
 }
 
-/* Hide elements that should NOT appear on legal pages */
+/* Hide things that should NOT appear on legal pages */
 body.legal-page #main-nav .nav-links,
 body.legal-page #main-nav .hamburger,
-body.legal-page #main-nav .nav-badge,
 body.legal-page #main-nav .nav-status,
 body.legal-page #main-nav .nav-pipe,
 body.legal-page #main-nav .nav-tag,
 body.legal-page #main-nav .nav-descriptor,
-body.legal-page .mobile-nav,
 body.legal-page .mobile-menu,
-body.legal-page .floating-wa,
-body.legal-page .nav-backdrop {
+body.legal-page .floating-wa {
   display: none !important;
 }
 
@@ -114,7 +103,6 @@ body.legal-page #main-nav .nav-right {
   display: flex !important;
   align-items: center !important;
   flex-shrink: 0 !important;
-  overflow: hidden !important;        /* prevents any text from bleeding out of the right slot */
 }
 
 /* CTA button */
@@ -211,54 +199,63 @@ body.legal-page #main-nav .nav-btn:hover {
 
 /* ── LEGAL BODY ───────────────────────────────────────── */
 .legal-body {
-  padding: 3rem 5% 5rem;              /* mobile padding by default */
+  padding: 4.5rem 5% 7rem;
 }
 
-
-/* ── LEGAL INNER — MOBILE FIRST ───────────────────────── */
 /*
-   DEFAULT (mobile): single column, TOC above content.
-   This is the safe default. The two-column layout is an
-   ENHANCEMENT applied only at >= 901px.
-
-   Why mobile-first matters here:
-   Overriding position:sticky → position:static with !important
-   is unreliable on Android WebView and some Chromium builds.
-   Starting from static and ADDING sticky only on wide screens
-   is bulletproof across all browsers.
+   Two-column layout using FLEXBOX.
+   Flexbox is more reliable than CSS grid for this use case
+   because it degrades more predictably on mobile.
 */
 .legal-inner {
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
-  flex-direction: column;             /* single column on mobile */
-  gap: 2rem;
-  align-items: stretch;              /* full-width children by default */
+  flex-direction: row;
+  gap: 4rem;
+  align-items: flex-start;
 }
 
-/* Content column */
+/* Right column — content fills all remaining space */
 .legal-content {
-  flex: 1 1 auto;
+  flex: 1 1 0;
   min-width: 0;
-  width: 100%;
+  /* Explicit stacking context above the sticky TOC so content always
+     renders on top if any compositing layer order issue occurs. */
+  position: relative;
+  z-index: 1;
 }
 
 
-/* ── TABLE OF CONTENTS — MOBILE FIRST ────────────────── */
+/* ── TABLE OF CONTENTS ────────────────────────────────── */
 /*
-   DEFAULT (mobile): static block, full width.
-   No sticky, no fixed width, no alignment tricks.
-   Cannot overlap adjacent content.
+   DESKTOP: sticky sidebar fixed at 210px wide.
+   MOBILE: position: static — plain block, cannot overlap.
 */
 .legal-toc {
-  /* Layout — mobile defaults */
-  flex: none;
-  width: 100%;
-  align-self: auto;
-  position: static;                   /* NOT sticky by default */
-  top: auto;                          /* no offset needed */
+  flex: 0 0 210px;
+  width: 210px;
+  /*
+    align-self:flex-start is REQUIRED for position:sticky inside a flex
+    container. Without it, the item stretches to full container height
+    and has no room to scroll — sticky never activates.
+  */
+  align-self: flex-start;
 
-  /* Appearance */
+  position: sticky;
+  top: calc(56px + 1.5rem);
+
+  /*
+    CRITICAL — Safari sticky + overflow bug:
+    Setting overflow:auto (or hidden/scroll) directly on a position:sticky
+    element causes WebKit to use the element itself as the scroll container
+    reference for stickiness — breaking it entirely. The sticky element
+    thinks it can only move within its OWN scroll bounds, which are zero.
+    Fix: remove max-height and overflow-y from this element.
+    The TOC content (18 items max ≈ 380px) fits any normal viewport, so
+    no scrolling is needed. If it ever overflows, the page scroll handles it.
+  */
+
   background: #ffffff;
   border: 1px solid #E2E8F0;
   border-radius: 10px;
@@ -276,17 +273,12 @@ body.legal-page #main-nav .nav-btn:hover {
   margin-bottom: 0.9rem;
 }
 
-/*
-   Mobile TOC: 2-column grid so 18 items don't make a
-   very long list on small screens.
-*/
 .legal-toc ol {
   list-style: none;
   padding: 0;
   margin: 0;
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0 2rem;
+  display: flex;
+  flex-direction: column;
 }
 
 .legal-toc ol li a {
@@ -303,57 +295,6 @@ body.legal-page #main-nav .nav-btn:hover {
 .legal-toc ol li a:hover {
   color: #1D4ED8;
   padding-left: 4px;
-}
-
-
-/* ── DESKTOP: TWO-COLUMN LAYOUT ───────────────────────── */
-/*
-   At 901px and above: enable the sticky sidebar layout.
-   All layout enhancements live here — base styles remain mobile-safe.
-*/
-@media (min-width: 901px) {
-  .legal-body {
-    padding: 4.5rem 5% 7rem;
-  }
-
-  .legal-inner {
-    flex-direction: row;              /* side-by-side */
-    gap: 4rem;
-    align-items: flex-start;         /* top-align both columns */
-  }
-
-  .legal-content {
-    flex: 1 1 0;
-  }
-
-  .legal-toc {
-    /* Fixed sidebar width */
-    flex: 0 0 210px;
-    width: 210px;
-
-    /*
-      align-self:flex-start is REQUIRED for position:sticky
-      inside a flex container. Without it, the element stretches
-      to full container height and sticky never activates.
-    */
-    align-self: flex-start;
-
-    /*
-      Sticky sidebar — safe here because:
-      1. html has overflow-x:hidden (not body), so no scroll-container bug
-      2. No overflow set on .legal-toc itself (Safari overflow+sticky bug avoided)
-      3. align-self:flex-start gives the element room to scroll within
-    */
-    position: sticky;
-    top: calc(56px + 1.5rem);        /* clears the fixed navbar */
-  }
-
-  /* Desktop TOC: vertical list (single column) */
-  .legal-toc ol {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
-  }
 }
 
 
@@ -475,7 +416,7 @@ body.legal-page #main-nav .nav-btn:hover {
   gap: 1.5rem;
 }
 
-/* Footer logo */
+/* Footer logo — works for both old and new markup */
 .legal-footer a.footer-logo,
 .legal-footer .footer-logo {
   display: inline-flex;
@@ -504,9 +445,14 @@ body.legal-page #main-nav .nav-btn:hover {
   display: inline-block;
 }
 
-/* Hide old-style logo text span (legacy markup compat) */
+/* Hide old-style logo text span */
 .legal-footer .footer-logo-text {
   display: none;
+}
+
+/* Show the raw text node in the anchor */
+.legal-footer .footer-logo {
+  font-family: 'Barlow', sans-serif;
 }
 
 .legal-footer-links {
@@ -536,12 +482,82 @@ body.legal-page #main-nav .nav-btn:hover {
 }
 
 
-/* ── RESPONSIVE — SMALL MOBILE (≤ 500px) ─────────────── */
-@media (max-width: 500px) {
+/* ── RESPONSIVE — TABLET / SMALL SCREENS ─────────────────
+   BREAKPOINT RAISED: 900px → 1100px
+   ─────────────────────────────────────────────────────────
+   ROOT CAUSE OF TOC OVERLAP BUG:
+   The previous 900px breakpoint was too narrow. In the two-column
+   row layout, the TOC occupies 210px + 4rem gap (≈ 274px total).
+   On any phone or viewport narrower than ~350px the content column
+   was compressed to near-zero width, causing the flex items to
+   visually stack on top of each other instead of side by side.
+   Additionally, phones with browser zoom, desktop-mode enabled, or
+   high-DPR quirks could report a CSS width above 900px, preventing
+   the layout switch entirely.
+
+   Raising to 1100px ensures ALL phones, ALL phablets, and ALL
+   tablets in portrait mode get the safe stacked column layout.
+   ──────────────────────────────────────────────────────── */
+@media (max-width: 1100px) {
   .legal-header {
-    padding: calc(56px + 2rem) 5% 2.5rem;
+    padding: calc(56px + 2.5rem) 5% 3rem;
   }
 
+  .legal-body {
+    padding: 3rem 5% 5rem;
+  }
+
+  /* Stack vertically: TOC above content — no overlap possible */
+  .legal-inner {
+    flex-direction: column;
+    gap: 2rem;
+  }
+
+  /* ── TOC: full reset to normal block flow ──
+     Every desktop property that could cause overlap is explicitly
+     overridden here so no rule can leak through.
+  */
+  .legal-toc {
+    /* Remove sticky — it has no meaning in column flow and
+       its stacking context would render it above the content */
+    position: static !important;
+
+    /* Full width — override the 210px desktop constraint */
+    width: 100% !important;
+    max-width: 100% !important;
+
+    /* Reset flex sizing so width:100% takes full effect */
+    flex: none !important;
+
+    /* CRITICAL FIX: override align-self:flex-start from desktop rules.
+       In column flex mode, align-self:flex-start (cross-axis = horizontal)
+       was shrinking the TOC to its natural 210px width instead of
+       stretching it full-width. This was the direct cause of the TOC
+       appearing as a narrow box overlapping the content column.      */
+    align-self: auto !important;
+
+    /* Remove the top offset — meaningless on static element */
+    top: auto !important;
+  }
+
+  /* 2-column link grid inside TOC on wider tablets */
+  .legal-toc ol {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 2rem;
+  }
+
+  .legal-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+/* ── RESPONSIVE — MOBILE (≤ 640px) ───────────────────────
+   Breakpoint also raised: 500px → 640px to cover all phones.
+──────────────────────────────────────────────────────── */
+@media (max-width: 640px) {
   .legal-header h1 {
     font-size: 2rem;
   }
@@ -550,17 +566,12 @@ body.legal-page #main-nav .nav-btn:hover {
     font-size: 1.3rem;
   }
 
-  /* Collapse TOC to single column on very small screens */
+  /* Single column TOC links on small phones */
   .legal-toc ol {
     grid-template-columns: 1fr;
   }
 
   .legal-footer {
     padding: 2.5rem 5%;
-  }
-
-  .legal-footer-inner {
-    flex-direction: column;
-    align-items: flex-start;
   }
 }

@@ -367,45 +367,36 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 
 
 /* ── MOBILE NAV ─────────────────────────────────────────── */
+/*
+ * ARCHITECTURE CHANGE: position:fixed → position:absolute
+ *
+ * The mobile-nav is now nested inside <nav id="main-nav"> in the HTML.
+ * <nav> is position:fixed with z-index:999, so it has its own GPU
+ * compositing layer above the entire page.
+ *
+ * mobile-nav with position:absolute + top:100% drops it directly below
+ * the nav bar and inherits the nav's compositing layer. It is therefore
+ * ALWAYS visually above the hero — no z-index tricks, no will-change
+ * conflicts, no GPU compositor order issues. This is the correct,
+ * permanent fix for the background-not-rendering bug.
+ */
 .mobile-nav {
-  position: fixed;
-  top: var(--nav-h);
-  left: 0; right: 0;
+  position: absolute; /* relative to the fixed <nav> parent */
+  top: 100%;          /* starts exactly at the bottom edge of the nav bar */
+  left: 0;
+  right: 0;
 
-  /*
-   * z-index FIX: raised from 99 → 1000.
-   *
-   * The hero slides use will-change: opacity, transform which promotes them
-   * to independent GPU compositing layers. In some browsers (especially on
-   * Android Chrome), GPU-composited layers with lower z-index values can
-   * "bleed through" above position:fixed elements that have z-index < 100.
-   * Setting z-index: 1000 ensures the mobile-nav always renders visually
-   * above all hero slide compositing layers.
-   *
-   * The main nav bar uses z-index: 100 — we set 1000 here so the mobile
-   * drawer also sits safely above everything.
-   */
-  z-index: 1000;
+  /* No z-index needed — inherits nav's stacking context (z-index:999) */
 
-  /*
-   * transform: translateZ(0) promotes the mobile-nav to its own GPU
-   * compositing layer BEFORE the menu opens. This guarantees it is in the
-   * correct paint order above hero slides and avoids any flash/flicker when
-   * the menu opens for the first time.
-   */
-  transform: translateY(-10px) translateZ(0);
+  background: #F4F1EC;
+  background: var(--bg, #F4F1EC);
+  border-bottom: 1px solid var(--border, #e5e1d8);
+  box-shadow: 0 16px 40px rgba(14,15,13,0.18);
 
-  background: var(--bg);
-  border-bottom: 1px solid var(--border);
-  box-shadow: 0 16px 40px rgba(14,15,13,0.1);
+  transform: translateY(-10px);
   opacity: 0;
   pointer-events: none;
   visibility: hidden;
-  /*
-    display:none on screens wider than the hamburger breakpoint (860px).
-    This prevents any accidental rendering or AT announcing of the drawer
-    on desktop where the hamburger button is display:none.
-  */
   display: none;
   transition:
     transform 0.3s cubic-bezier(0.23, 1, 0.32, 1),
@@ -414,7 +405,7 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
 }
 
 .mobile-nav.open {
-  transform: translateY(0) translateZ(0);
+  transform: translateY(0);
   opacity: 1;
   pointer-events: all;
   visibility: visible;
@@ -472,6 +463,14 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   align-items: flex-start;
   overflow: hidden;
   background: var(--dark); /* Fallback if images fail */
+  /*
+   * isolation: isolate creates an explicit stacking context for the hero.
+   * This confines all z-index ordering of hero children (slides, overlay,
+   * grain, content) to within the hero element, preventing any accidental
+   * compositing interaction with fixed-position elements above the hero
+   * (such as the nav and mobile-nav).
+   */
+  isolation: isolate;
 }
 
 /* ── Slideshow background ── */
@@ -492,7 +491,12 @@ nav.nav-solid .hamburger span { background: var(--text-head); }
   transition:
     opacity 1.4s cubic-bezier(0.4, 0, 0.2, 1),
     transform 8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-  will-change: opacity, transform;
+  /*
+   * REMOVED: will-change: opacity, transform
+   * This was causing hero GPU compositing layers to paint above the
+   * mobile-nav despite z-index:1000, making the nav background invisible.
+   * CSS transitions still animate the hero correctly without this hint.
+   */
 }
 
 .hero-slide.active {

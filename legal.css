@@ -200,18 +200,33 @@ body.legal-page #main-nav .nav-btn:hover {
 /* ── LEGAL BODY ───────────────────────────────────────── */
 .legal-body {
   padding: 4.5rem 5% 7rem;
+  /*
+   * container-type: inline-size makes .legal-body a CSS Container.
+   * Container queries (@container) then respond to THIS element's own width,
+   * NOT the viewport width. This is immune to:
+   *   - Browser "desktop mode" (which inflates the viewport CSS width)
+   *   - User zoom level
+   *   - URL bar show/hide causing viewport height/width fluctuation
+   *   - Any viewport meta quirks
+   * When the .legal-body element is ≤ 800px wide, the TOC collapses to
+   * a stacked block layout regardless of what the viewport reports.
+   */
+  container-type: inline-size;
+  container-name: legal-body;
 }
 
 /*
    Two-column layout using FLEXBOX.
-   Flexbox is more reliable than CSS grid for this use case
-   because it degrades more predictably on mobile.
+   flex-wrap: wrap is an additional safety net: if the content's minimum
+   width cannot fit alongside the TOC, it wraps to a new row automatically,
+   preventing overlap even if no media/container query fires.
 */
 .legal-inner {
   max-width: 1100px;
   margin: 0 auto;
   display: flex;
   flex-direction: row;
+  flex-wrap: wrap; /* safety net — items wrap before they overlap */
   gap: 4rem;
   align-items: flex-start;
 }
@@ -220,8 +235,15 @@ body.legal-page #main-nav .nav-btn:hover {
 .legal-content {
   flex: 1 1 0;
   min-width: 0;
-  /* Explicit stacking context above the sticky TOC so content always
-     renders on top if any compositing layer order issue occurs. */
+  /*
+   * min-width: 480px tells the flex container: "if I can't have at least
+   * 480px, wrap me to a new row instead of shrinking further."
+   * Combined with flex-wrap: wrap on .legal-inner, this means on any
+   * screen where 210px (TOC) + 4rem (gap) + 480px (content) > container
+   * width (~754px), the layout automatically collapses to single column.
+   * No media query needed for this safety net to work.
+   */
+  min-width: min(480px, 100%);
   position: relative;
   z-index: 1;
 }
@@ -482,21 +504,61 @@ body.legal-page #main-nav .nav-btn:hover {
 }
 
 
-/* ── RESPONSIVE — TABLET / SMALL SCREENS ─────────────────
-   BREAKPOINT RAISED: 900px → 1100px
-   ─────────────────────────────────────────────────────────
-   ROOT CAUSE OF TOC OVERLAP BUG:
-   The previous 900px breakpoint was too narrow. In the two-column
-   row layout, the TOC occupies 210px + 4rem gap (≈ 274px total).
-   On any phone or viewport narrower than ~350px the content column
-   was compressed to near-zero width, causing the flex items to
-   visually stack on top of each other instead of side by side.
-   Additionally, phones with browser zoom, desktop-mode enabled, or
-   high-DPR quirks could report a CSS width above 900px, preventing
-   the layout switch entirely.
 
-   Raising to 1100px ensures ALL phones, ALL phablets, and ALL
-   tablets in portrait mode get the safe stacked column layout.
+
+/* ══════════════════════════════════════════════════════════
+   CONTAINER QUERY — PRIMARY responsive layout switch
+   ══════════════════════════════════════════════════════════
+   This is the PRIMARY fix for the TOC sidebar overlap bug.
+
+   Unlike @media queries which read the VIEWPORT width, @container
+   reads the width of the .legal-body element directly. This means:
+
+   ✓ Works correctly in Chrome "desktop mode" (viewport is inflated
+     but .legal-body still measures its real pixel width)
+   ✓ Works when browser zoom is changed
+   ✓ Works when URL bar shows/hides (viewport height changes, not width)
+   ✓ Works on ALL phones, tablets, and narrow windows at ANY zoom level
+   ✓ Not affected by DPR (device pixel ratio) reporting differences
+
+   The media query below is kept as a FALLBACK for browsers that do not
+   yet support @container (released 2022 — Safari 16+, Chrome 105+,
+   Firefox 110+). Most Android phones in 2024+ support container queries.
+   ══════════════════════════════════════════════════════════ */
+@container legal-body (max-width: 800px) {
+  /*
+   * NUCLEAR FIX: Hide the TOC sidebar completely on narrow screens.
+   * display:none eliminates ALL overlap possibilities — no z-index,
+   * no positioning, no stacking context issues can occur if the
+   * element simply does not exist in the layout.
+   *
+   * The TOC is a navigation convenience for long documents. On mobile,
+   * users can scroll the page directly. The main section headings are
+   * large and clearly visible as landmarks.
+   */
+  .legal-toc {
+    display: none !important;
+  }
+
+  .legal-inner {
+    flex-direction: column;
+    gap: 0;
+  }
+
+  .legal-content {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .legal-footer-inner {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}
+
+
+/* ── FALLBACK media query (browsers without container query support) ──
+   Also hides TOC on mobile — matching the container query above.
    ──────────────────────────────────────────────────────── */
 @media (max-width: 1100px) {
   .legal-header {
@@ -507,44 +569,21 @@ body.legal-page #main-nav .nav-btn:hover {
     padding: 3rem 5% 5rem;
   }
 
-  /* Stack vertically: TOC above content — no overlap possible */
   .legal-inner {
     flex-direction: column;
-    gap: 2rem;
+    gap: 0;
   }
 
-  /* ── TOC: full reset to normal block flow ──
-     Every desktop property that could cause overlap is explicitly
-     overridden here so no rule can leak through.
-  */
+  /* NUCLEAR: Hide TOC sidebar completely on mobile.
+     display:none is the only CSS value that makes overlap
+     physically impossible. No stacking, no z-index, no sticky. */
   .legal-toc {
-    /* Remove sticky — it has no meaning in column flow and
-       its stacking context would render it above the content */
-    position: static !important;
-
-    /* Full width — override the 210px desktop constraint */
-    width: 100% !important;
-    max-width: 100% !important;
-
-    /* Reset flex sizing so width:100% takes full effect */
-    flex: none !important;
-
-    /* CRITICAL FIX: override align-self:flex-start from desktop rules.
-       In column flex mode, align-self:flex-start (cross-axis = horizontal)
-       was shrinking the TOC to its natural 210px width instead of
-       stretching it full-width. This was the direct cause of the TOC
-       appearing as a narrow box overlapping the content column.      */
-    align-self: auto !important;
-
-    /* Remove the top offset — meaningless on static element */
-    top: auto !important;
+    display: none !important;
   }
 
-  /* 2-column link grid inside TOC on wider tablets */
-  .legal-toc ol {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 0 2rem;
+  .legal-content {
+    width: 100%;
+    min-width: 0;
   }
 
   .legal-footer-inner {
@@ -554,9 +593,7 @@ body.legal-page #main-nav .nav-btn:hover {
 }
 
 
-/* ── RESPONSIVE — MOBILE (≤ 640px) ───────────────────────
-   Breakpoint also raised: 500px → 640px to cover all phones.
-──────────────────────────────────────────────────────── */
+/* ── RESPONSIVE — MOBILE (≤ 640px) ─────────────────────── */
 @media (max-width: 640px) {
   .legal-header h1 {
     font-size: 2rem;
@@ -564,11 +601,6 @@ body.legal-page #main-nav .nav-btn:hover {
 
   .legal-section h2 {
     font-size: 1.3rem;
-  }
-
-  /* Single column TOC links on small phones */
-  .legal-toc ol {
-    grid-template-columns: 1fr;
   }
 
   .legal-footer {

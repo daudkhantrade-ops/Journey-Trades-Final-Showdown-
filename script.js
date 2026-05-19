@@ -60,9 +60,10 @@ const PAGE_LOAD_TIME = Date.now();
     link.addEventListener('click', () => toggleMenu(false));
   });
 
-  // Close on outside click
+  // Close on outside click — mobile-nav is now inside <nav>, so
+  // nav.contains(e.target) covers clicks inside the menu drawer too.
   document.addEventListener('click', (e) => {
-    if (!nav.contains(e.target) && !mobileNav.contains(e.target)) {
+    if (!nav.contains(e.target)) {
       toggleMenu(false);
     }
   });

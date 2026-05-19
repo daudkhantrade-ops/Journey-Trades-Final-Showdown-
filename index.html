@@ -225,19 +225,33 @@
     </button>
 
   </div>
-</nav>
 
-<!-- Mobile Navigation -->
-<div class="mobile-nav" id="mobile-nav" aria-hidden="true" role="dialog" aria-label="Mobile navigation menu">
-  <div class="mobile-nav-inner">
-    <a href="#services">Services</a>
-    <a href="#process">Process</a>
-    <a href="#operations">Operations</a>
-    <a href="#industries">Industries</a>
-    <a href="#contact">Contact</a>
-    <a href="#contact" class="mobile-nav-cta">Start Sourcing →</a>
+  <!--
+    MOBILE NAV — moved INSIDE <nav> (was previously a sibling div after </nav>)
+
+    WHY: When mobile-nav was a sibling of <nav> with position:fixed, it lived in
+    the root compositing stack. Hero slides with will-change:transform were
+    promoted to GPU layers that Chrome painted on top of the mobile-nav background
+    in compositor order — making the background invisible (only text bled through).
+
+    FIX: By nesting mobile-nav inside the fixed <nav> element and using
+    position:absolute instead of position:fixed, mobile-nav inherits the nav's
+    GPU compositing layer (z-index:999). It is guaranteed to render above the
+    hero because its stacking context is the nav, which sits above the hero
+    in both z-index and compositor order. No z-index tricks needed.
+  -->
+  <div class="mobile-nav" id="mobile-nav" aria-hidden="true" role="dialog" aria-label="Mobile navigation menu">
+    <div class="mobile-nav-inner">
+      <a href="#services">Services</a>
+      <a href="#process">Process</a>
+      <a href="#operations">Operations</a>
+      <a href="#industries">Industries</a>
+      <a href="#contact">Contact</a>
+      <a href="#contact" class="mobile-nav-cta">Start Sourcing →</a>
+    </div>
   </div>
-</div>
+
+</nav>
 
 
 <!-- ═══════════════════════════════════════
